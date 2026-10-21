@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "@node-rs/argon2": "2.2.2",
-    "@prisma/client": "6.19.3",
+    "@prisma/client": "7.10.1",
     "@vaultledger/shared": "*",
     "@zxcvbn-ts/core": "4.2.0",
     "@zxcvbn-ts/language-common": "4.1.3",
