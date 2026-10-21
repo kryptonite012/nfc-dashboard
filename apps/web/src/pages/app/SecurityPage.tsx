@@ -11,7 +11,7 @@ import {
   type UserDTO,
 } from '@vaultledger/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, Laptop, LogOut, Mail, Phone, ShieldAlert, Smartphone, Trash2 } from 'lucide-react';
+import { CheckCircle2, Laptop, LogOut, Mail, Phone, ShieldAlert, ShieldCheck, Smartphone, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useForm, useWatch, type FieldValues, type Path, type UseFormSetError } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router-dom';
@@ -26,6 +26,7 @@ import { Input } from '@/components/ui/input';
 import { Badge, Card, CardContent, CardDescription, CardHeader, CardTitle, Skeleton } from '@/components/ui/primitives';
 import { queryKeys, useConfig, useCurrentUser, useSessions } from '@/hooks/queries';
 import { api, errorMessage, isApiError, resetCsrfToken } from '@/lib/api';
+import { IS_CLAUDE_EDITION } from '@/lib/edition';
 import { formatDateTime, formatRelative } from '@/lib/format';
 
 function applyServerErrors<T extends FieldValues>(error: unknown, setError: UseFormSetError<T>, fallback: (message: string) => void) {
@@ -557,8 +558,125 @@ function DangerZone() {
   );
 }
 
+/** Claude edition: identity comes from the viewer's Claude account, so there are no passwords or sessions here. */
+function ClaudeAccountPage({ user }: { user: UserDTO }) {
+  const [open, setOpen] = useState(false);
+  const [phrase, setPhrase] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const client = useQueryClient();
+  const remove = useMutation({
+    mutationFn: () => api('/api/account', { method: 'DELETE', body: { confirmation: phrase } }),
+    onSuccess: () => {
+      setOpen(false);
+      setPhrase('');
+      void client.invalidateQueries();
+      toast.success('All of your VaultLedger data has been deleted.');
+    },
+    onError: (err) => setError(errorMessage(err)),
+  });
+
+  return (
+    <div className="space-y-6">
+      <PageHeader title="Profile & Security" description="Your identity and the privacy of your records." />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Your account</CardTitle>
+            <CardDescription>You are signed in to VaultLedger with your Claude account.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <p>
+              <span className="text-muted-foreground">Name: </span>
+              <span className="font-medium">{user.name}</span>
+            </p>
+            <p className="text-muted-foreground">
+              Sign-in, sign-out, passwords and two-step verification are handled by claude.ai. To switch accounts, sign out of claude.ai and
+              open this link again.
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ShieldCheck className="size-4 text-primary" aria-hidden /> Privacy of your records
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm text-muted-foreground">
+            <p>Your records, categories and history are stored in your own private space for this app.</p>
+            <p>Nobody else who opens this link can see them, including the person who published it.</p>
+            <p>
+              You can download everything at any time from <Link to="/app/data" className="font-medium text-primary hover:underline">Import / Export</Link>.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+      <Card className="border-destructive/40">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-destructive">
+            <ShieldAlert className="size-4" aria-hidden /> Delete all my data
+          </CardTitle>
+          <CardDescription>
+            Permanently deletes every record, category, price history entry, activity entry and setting you have stored here. This cannot be
+            undone.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button variant="destructive" onClick={() => setOpen(true)}>
+            <Trash2 /> Delete all my data
+          </Button>
+        </CardContent>
+      </Card>
+      <Dialog
+        open={open}
+        onOpenChange={(value) => {
+          setOpen(value);
+          if (!value) {
+            setPhrase('');
+            setError(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete all of your data?</DialogTitle>
+            <DialogDescription>
+              Consider <Link to="/app/data" className="text-primary hover:underline">downloading a full export</Link> first.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            className="space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              setError(null);
+              remove.mutate();
+            }}
+          >
+            {error && <Alert tone="error">{error}</Alert>}
+            <Field id="delete-phrase" label={<>Type <span className="font-mono">{DELETE_CONFIRMATION_PHRASE}</span> to confirm</>}>
+              {(aria) => <Input {...aria} autoComplete="off" value={phrase} onChange={(event) => setPhrase(event.target.value)} />}
+            </Field>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                Keep my data
+              </Button>
+              <Button type="submit" variant="destructive" loading={remove.isPending} disabled={phrase !== DELETE_CONFIRMATION_PHRASE}>
+                Permanently delete
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 export default function SecurityPage() {
   const user = useCurrentUser();
+  if (IS_CLAUDE_EDITION) return <ClaudeAccountPage user={user} />;
+  return <ServerSecurityPage user={user} />;
+}
+
+function ServerSecurityPage({ user }: { user: UserDTO }) {
   const config = useConfig();
   return (
     <div className="space-y-6">

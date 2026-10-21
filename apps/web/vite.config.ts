@@ -2,7 +2,12 @@ import react from '@vitejs/plugin-react';
 import path from 'node:path';
 import { defineConfig } from 'vitest/config';
 
-export default defineConfig({
+// `vite build --mode claude` builds the claude.ai edition (see src/lib/edition.ts and scripts/make-artifact.mjs).
+export default defineConfig(({ mode }) => ({
+  base: mode === 'claude' ? './' : '/',
+  define: {
+    'import.meta.env.VITE_EDITION': JSON.stringify(mode === 'claude' ? 'claude' : 'server'),
+  },
   plugins: [react()],
   resolve: {
     alias: { '@': path.resolve(__dirname, 'src') },
@@ -16,7 +21,8 @@ export default defineConfig({
     },
   },
   build: {
-    sourcemap: true,
+    outDir: mode === 'claude' ? 'dist-claude' : 'dist',
+    sourcemap: mode !== 'claude',
     // The password-strength dictionaries (~1.2 MB) are a lazily loaded chunk used only on password forms.
     chunkSizeWarningLimit: 1300,
     rollupOptions: {
@@ -38,4 +44,4 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     css: false,
   },
-});
+}));

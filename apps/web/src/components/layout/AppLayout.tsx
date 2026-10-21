@@ -1,6 +1,6 @@
 import { ChevronsLeft, ChevronsRight, LogOut } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { QuickAddProvider } from '@/components/items/QuickAdd';
 import { Logo, LogoMark } from '@/components/layout/Logo';
 import { NAV_SECTIONS, pageTitle, type NavItem } from '@/components/layout/nav';
@@ -8,6 +8,7 @@ import { Topbar } from '@/components/layout/Topbar';
 import { Dialog, DialogTitle, SheetContent } from '@/components/ui/dialog';
 import { Tooltip } from '@/components/ui/menu';
 import { useLogout } from '@/hooks/useLogout';
+import { IS_CLAUDE_EDITION } from '@/lib/edition';
 import { cn } from '@/lib/utils';
 
 const COLLAPSE_KEY = 'vl-sidebar-collapsed';
@@ -77,15 +78,18 @@ function SidebarNav({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?
           ))}
         </div>
       ))}
-      <div className="mt-auto border-t border-sidebar-border pt-3">
-        {collapsed ? (
-          <Tooltip content="Logout" side="right">
-            {logoutButton}
-          </Tooltip>
-        ) : (
-          logoutButton
-        )}
-      </div>
+      {/* In the Claude edition people sign in and out through claude.ai itself. */}
+      {!IS_CLAUDE_EDITION && (
+        <div className="mt-auto border-t border-sidebar-border pt-3">
+          {collapsed ? (
+            <Tooltip content="Logout" side="right">
+              {logoutButton}
+            </Tooltip>
+          ) : (
+            logoutButton
+          )}
+        </div>
+      )}
     </nav>
   );
 }
@@ -156,7 +160,14 @@ export function AppLayout() {
             <Outlet />
           </main>
           <footer className="border-t px-4 py-4 text-center text-xs text-muted-foreground sm:px-6">
-            VaultLedger · <a className="hover:underline" href="/privacy">Privacy</a> · <a className="hover:underline" href="/terms">Terms</a>
+            VaultLedger ·{' '}
+            <Link className="hover:underline" to="/privacy">
+              Privacy
+            </Link>{' '}
+            ·{' '}
+            <Link className="hover:underline" to="/terms">
+              Terms
+            </Link>
           </footer>
         </div>
       </div>

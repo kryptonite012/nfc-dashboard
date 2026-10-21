@@ -3,12 +3,13 @@ import './index.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter, MemoryRouter } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { App } from '@/App';
 import { TooltipProvider } from '@/components/ui/menu';
-import { queryKeys } from '@/hooks/queries';
+import { invalidateItemData, queryKeys } from '@/hooks/queries';
 import { isApiError, onUnauthenticated } from '@/lib/api';
+import { IS_CLAUDE_EDITION } from '@/lib/edition';
 import { ThemeProvider, useTheme } from '@/lib/theme';
 
 const queryClient = new QueryClient({
@@ -27,6 +28,20 @@ onUnauthenticated(() => {
   if (queryClient.getQueryData(queryKeys.session)) queryClient.setQueryData(queryKeys.session, null);
 });
 
+// Claude edition: records changed on another device or tab arrive through the live store; refresh the views.
+if (IS_CLAUDE_EDITION) {
+  let pending: ReturnType<typeof setTimeout> | undefined;
+  window.addEventListener('vaultledger:data-changed', () => {
+    clearTimeout(pending);
+    pending = setTimeout(() => void invalidateItemData(queryClient), 300);
+  });
+}
+
+// Inside claude.ai the page is framed and its address bar never changes, so routes live in memory.
+const Router = IS_CLAUDE_EDITION
+  ? ({ children }: { children: React.ReactNode }) => <MemoryRouter initialEntries={['/app']}>{children}</MemoryRouter>
+  : BrowserRouter;
+
 function ThemedToaster() {
   const { resolved } = useTheme();
   return <Toaster theme={resolved} position="bottom-right" richColors closeButton duration={5000} />;
@@ -37,9 +52,9 @@ createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <TooltipProvider>
-          <BrowserRouter>
+          <Router>
             <App />
-          </BrowserRouter>
+          </Router>
           <ThemedToaster />
         </TooltipProvider>
       </ThemeProvider>

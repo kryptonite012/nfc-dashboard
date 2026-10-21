@@ -39,7 +39,7 @@ import {
 } from '@/components/ui/menu';
 import { Badge, Card, Checkbox, Skeleton } from '@/components/ui/primitives';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useCategories, useCurrentUser, useItems, type ItemListParams } from '@/hooks/queries';
+import { useCategories, useConfig, useCurrentUser, useItems, type ItemListParams } from '@/hooks/queries';
 import { useItemActions } from '@/hooks/useItemActions';
 import { downloadFile, errorMessage } from '@/lib/api';
 import { formatDate, formatDateTime, formatMoney, formatNumber } from '@/lib/format';
@@ -128,6 +128,7 @@ export default function RecordsPage() {
   const [params, update] = useListParams();
   const items = useItems(params);
   const categories = useCategories();
+  const pdfExport = useConfig().data?.features.pdfExport ?? false;
   const actions = useItemActions();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirm, setConfirm] = useState<{ kind: 'trash' | 'purge'; items: ItemDTO[] } | null>(null);
@@ -338,9 +339,11 @@ export default function RecordsPage() {
                 <DropdownMenuItem onSelect={() => void exportAs('csv')}>
                   <Sheet /> CSV (spreadsheet)
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => void exportAs('pdf')}>
-                  <FileText /> PDF report
-                </DropdownMenuItem>
+                {pdfExport && (
+                  <DropdownMenuItem onSelect={() => void exportAs('pdf')}>
+                    <FileText /> PDF report
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
             <Button size="sm" onClick={quickAdd.open}>

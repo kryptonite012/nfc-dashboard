@@ -1,5 +1,6 @@
 import type { ThemePreference } from '@vaultledger/shared';
 import * as React from 'react';
+import { IS_CLAUDE_EDITION } from './edition';
 
 const STORAGE_KEY = 'vl-theme';
 
@@ -20,7 +21,19 @@ function readStoredTheme(): ThemePreference {
   }
 }
 
+/**
+ * In the Claude edition the host app sets data-theme="light" | "dark" on the root element when the
+ * viewer picked a theme in claude.ai; "system" then follows that choice, otherwise the OS setting.
+ */
+function hostTheme(): 'light' | 'dark' | null {
+  if (!IS_CLAUDE_EDITION || typeof document === 'undefined') return null;
+  const value = document.documentElement.getAttribute('data-theme');
+  return value === 'light' || value === 'dark' ? value : null;
+}
+
 function systemPrefersDark(): boolean {
+  const host = hostTheme();
+  if (host) return host === 'dark';
   return typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches;
 }
 
@@ -32,9 +45,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     const media = window.matchMedia?.('(prefers-color-scheme: dark)');
     if (!media) return;
-    const listener = (event: MediaQueryListEvent) => setSystemDark(event.matches);
+    const listener = () => setSystemDark(systemPrefersDark());
     media.addEventListener('change', listener);
-    return () => media.removeEventListener('change', listener);
+    const observer = IS_CLAUDE_EDITION ? new MutationObserver(listener) : null;
+    observer?.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => {
+      media.removeEventListener('change', listener);
+      observer?.disconnect();
+    };
   }, []);
 
   const resolved: 'light' | 'dark' = theme === 'system' ? (systemDark ? 'dark' : 'light') : theme;
@@ -42,7 +60,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     const root = document.documentElement;
     root.classList.toggle('dark', resolved === 'dark');
-    root.setAttribute('data-theme', resolved);
+    // The host owns data-theme in the Claude edition.
+    if (!IS_CLAUDE_EDITION) root.setAttribute('data-theme', resolved);
   }, [resolved]);
 
   const setTheme = React.useCallback((next: ThemePreference) => {

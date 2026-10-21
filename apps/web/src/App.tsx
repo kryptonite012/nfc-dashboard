@@ -5,7 +5,9 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { ErrorState } from '@/components/ui/feedback';
 import { CurrentUserContext, useSession } from '@/hooks/queries';
 import { errorMessage } from '@/lib/api';
+import { IS_CLAUDE_EDITION } from '@/lib/edition';
 import { useTheme } from '@/lib/theme';
+import { ClaudeAccessPage } from '@/pages/ClaudeAccessPage';
 import { safeNextPath } from '@/lib/utils';
 import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage';
 import { LoginPage } from '@/pages/auth/LoginPage';
@@ -60,6 +62,7 @@ function RequireAuth({ children }: { children: ReactNode }) {
     );
   }
   if (!session.data) {
+    if (IS_CLAUDE_EDITION) return <ClaudeAccessPage />;
     return <Navigate to={`/login?next=${encodeURIComponent(location.pathname + location.search)}`} replace />;
   }
   return (
@@ -87,11 +90,20 @@ export function App() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/app" replace />} />
-      <Route path="/login" element={<GuestOnly><LoginPage /></GuestOnly>} />
-      <Route path="/register" element={<GuestOnly><RegisterPage /></GuestOnly>} />
-      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-      <Route path="/reset-password" element={<ResetPasswordPage />} />
-      <Route path="/verify-email" element={<VerifyEmailPage />} />
+      {IS_CLAUDE_EDITION ? (
+        // Sign-in is the viewer's Claude account in this edition.
+        ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email'].map((path) => (
+          <Route key={path} path={path} element={<Navigate to="/app" replace />} />
+        ))
+      ) : (
+        <>
+          <Route path="/login" element={<GuestOnly><LoginPage /></GuestOnly>} />
+          <Route path="/register" element={<GuestOnly><RegisterPage /></GuestOnly>} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
+        </>
+      )}
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/terms" element={<TermsPage />} />
       <Route

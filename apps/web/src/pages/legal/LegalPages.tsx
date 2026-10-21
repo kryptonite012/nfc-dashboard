@@ -3,6 +3,7 @@ import { useEffect, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Logo } from '@/components/layout/Logo';
 import { Alert } from '@/components/ui/feedback';
+import { IS_CLAUDE_EDITION } from '@/lib/edition';
 
 function LegalLayout({ title, children }: { title: string; children: ReactNode }) {
   useEffect(() => {
@@ -15,7 +16,7 @@ function LegalLayout({ title, children }: { title: string; children: ReactNode }
           <Link to="/">
             <Logo />
           </Link>
-          <Link to="/login" className="flex items-center gap-1 text-sm font-medium text-primary hover:underline">
+          <Link to={IS_CLAUDE_EDITION ? '/app' : '/login'} className="flex items-center gap-1 text-sm font-medium text-primary hover:underline">
             <ArrowLeft className="size-4" aria-hidden /> Back
           </Link>
         </div>
@@ -37,6 +38,17 @@ function LegalLayout({ title, children }: { title: string; children: ReactNode }
 export function PrivacyPage() {
   return (
     <LegalLayout title="Privacy Policy">
+      {IS_CLAUDE_EDITION && (
+        <section className="space-y-2">
+          <h2>This edition</h2>
+          <p>
+            This copy of VaultLedger runs on claude.ai. You sign in with your Claude account, and VaultLedger never sees a password. Your
+            records are kept in claude.ai’s storage, in a private space tied to your account that nobody else who opens the link can read,
+            including the person who published it. Use “Delete all my data” on Profile &amp; Security to erase it. Anthropic’s own privacy
+            policy covers your Claude account and the platform.
+          </p>
+        </section>
+      )}
       <section className="space-y-2">
         <h2>What we store</h2>
         <ul>

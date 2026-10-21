@@ -13,7 +13,7 @@ import {
   type UpdateItemInput,
 } from '@vaultledger/shared';
 import { Plus, RotateCcw, Save } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useForm, useWatch, type Path } from 'react-hook-form';
 import { toast } from 'sonner';
 import { CategoryDialog } from '@/components/items/CategoryDialog';
@@ -97,6 +97,8 @@ export function ItemForm({ mode, item, compact = false, onSaved, onCancel, autoF
   const categories = useCategories();
   const createItem = useCreateItem();
   const updateItem = useUpdateItem(item?.id ?? '');
+  // Unique per form, so a quick-add dialog over the add/edit page never duplicates field ids.
+  const formId = useId();
   const requestKey = useRef(newRequestKey());
   const addAnotherRef = useRef(false);
   const [lastSaved, setLastSaved] = useState<ItemDTO | null>(null);
@@ -184,11 +186,11 @@ export function ItemForm({ mode, item, compact = false, onSaved, onCancel, autoF
       )}
 
       <div className="grid gap-4 sm:grid-cols-6">
-        <Field id="item-name" label="Item name" required error={errors.name?.message} className="sm:col-span-6">
+        <Field id={`${formId}-name`} label="Item name" required error={errors.name?.message} className="sm:col-span-6">
           {(aria) => <Input {...aria} placeholder="e.g. Noise-cancelling headphones" autoComplete="off" maxLength={120} {...register('name')} />}
         </Field>
 
-        <Field id="item-price" label="Unit price" required error={errors.price?.message} className="sm:col-span-3">
+        <Field id={`${formId}-price`} label="Unit price" required error={errors.price?.message} className="sm:col-span-3">
           {(aria) => (
             <div className="relative">
               <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-muted-foreground">{symbol}</span>
@@ -204,7 +206,7 @@ export function ItemForm({ mode, item, compact = false, onSaved, onCancel, autoF
           )}
         </Field>
 
-        <Field id="item-currency" label="Currency" required error={errors.currency?.message} className="sm:col-span-3">
+        <Field id={`${formId}-currency`} label="Currency" required error={errors.currency?.message} className="sm:col-span-3">
           {(aria) => (
             <NativeSelect {...aria} {...register('currency')}>
               {CURRENCY_CODES.map((code) => (
@@ -218,7 +220,7 @@ export function ItemForm({ mode, item, compact = false, onSaved, onCancel, autoF
 
         {showQuantityField && (
           <Field
-            id="item-quantity"
+            id={`${formId}-quantity`}
             label="Quantity"
             error={errors.quantity?.message}
             className="sm:col-span-2"
@@ -229,7 +231,7 @@ export function ItemForm({ mode, item, compact = false, onSaved, onCancel, autoF
         )}
 
         <Field
-          id="item-category"
+          id={`${formId}-category`}
           label="Category"
           error={errors.categoryId?.message}
           className={showQuantityField ? 'sm:col-span-4' : 'sm:col-span-6'}
@@ -254,17 +256,17 @@ export function ItemForm({ mode, item, compact = false, onSaved, onCancel, autoF
 
         {!compact && (
           <>
-            <Field id="item-sku" label="SKU / reference" error={errors.sku?.message} className="sm:col-span-3">
+            <Field id={`${formId}-sku`} label="SKU / reference" error={errors.sku?.message} className="sm:col-span-3">
               {(aria) => <Input {...aria} autoComplete="off" maxLength={64} placeholder="Optional" {...register('sku')} />}
             </Field>
-            <Field id="item-purchase-date" label="Purchase date" error={errors.purchaseDate?.message} className="sm:col-span-3">
+            <Field id={`${formId}-purchase-date`} label="Purchase date" error={errors.purchaseDate?.message} className="sm:col-span-3">
               {(aria) => <Input {...aria} type="date" max="9999-12-31" {...register('purchaseDate')} />}
             </Field>
-            <Field id="item-supplier" label="Supplier or source" error={errors.supplier?.message} className="sm:col-span-3">
+            <Field id={`${formId}-supplier`} label="Supplier or source" error={errors.supplier?.message} className="sm:col-span-3">
               {(aria) => <Input {...aria} autoComplete="off" maxLength={120} placeholder="Optional" {...register('supplier')} />}
             </Field>
             <Field
-              id="item-tags"
+              id={`${formId}-tags`}
               label="Tags"
               error={errors.tags?.message}
               className="sm:col-span-3"
@@ -273,7 +275,7 @@ export function ItemForm({ mode, item, compact = false, onSaved, onCancel, autoF
               {(aria) => <Input {...aria} autoComplete="off" placeholder="Optional" {...register('tags')} />}
             </Field>
             <Field
-              id="item-description"
+              id={`${formId}-description`}
               label="Description or notes"
               error={errors.description?.message}
               className="sm:col-span-6"

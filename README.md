@@ -120,6 +120,23 @@ docker run -p 4000:4000 --env-file production.env vaultledger
 See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for step-by-step guides (Render / Railway / Fly.io with Neon,
 Supabase or Amazon RDS, and split hosting on Vercel or Netlify) and the go-live checklist.
 
+## Hosted edition on claude.ai
+
+The same web app can also be published as a claude.ai artifact, with no server or database to run:
+
+- **Sign-in** is the viewer's Claude account (claude.ai handles passwords and two-step verification).
+- **Storage** is claude.ai's artifact database. Each person's records live in their own private space that
+  nobody else can read, including the artifact's owner.
+- An in-browser module (`apps/web/src/lib/local/`) answers the app's API routes with the same validation,
+  error codes and calculations as the Express server, so every page works unchanged.
+- Differences from the self-hosted edition: no PDF export, CSV import is limited to 1,000 rows per file, and
+  there is no in-app sign-out (sign out of claude.ai instead). People you share the link with need
+  **Contributor** access to save their own records.
+
+Build it with `npm run build:claude --workspace @vaultledger/web`, then publish
+`apps/web/dist-claude/vaultledger.html` together with the `assets/` folder next to it, declaring the `db`,
+`user` (scope `profile`) and `downloads` capabilities.
+
 ## Configuration and integrations
 
 All secrets and settings come from environment variables, validated at startup. The server refuses to start in

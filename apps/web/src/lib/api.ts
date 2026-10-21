@@ -1,4 +1,6 @@
 import type { ApiErrorBody, ApiErrorCode } from '@vaultledger/shared';
+import { IS_CLAUDE_EDITION } from './edition';
+import type { DownloadsNs } from './local/claude';
 
 /** Base URL of the API. Empty means same origin (recommended; the dev server proxies /api). */
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? '';
@@ -122,6 +124,10 @@ async function toApiError(response: Response): Promise<ApiError> {
 }
 
 export async function api<T, M = unknown>(path: string, options: RequestOptions = {}): Promise<ApiResponse<T, M>> {
+  if (IS_CLAUDE_EDITION) {
+    const { handleLocal } = await import('./local/backend');
+    return handleLocal<T, M>(path, options);
+  }
   const response = await send(path, options);
   if (!response.ok) throw await toApiError(response);
   return (await response.json()) as ApiResponse<T, M>;
@@ -129,6 +135,22 @@ export async function api<T, M = unknown>(path: string, options: RequestOptions 
 
 /** Downloads a file response (CSV, PDF, JSON export) without exposing credentials in a URL. */
 export async function downloadFile(path: string, query: Record<string, QueryValue>, fallbackName: string): Promise<void> {
+  if (IS_CLAUDE_EDITION) {
+    const [{ buildExport }, { getCapability }] = await Promise.all([import('./local/backend'), import('./local/claude')]);
+    const file = await buildExport(
+      path,
+      Object.fromEntries(Object.entries(query).filter(([, value]) => value !== undefined && value !== null && value !== '').map(([key, value]) => [key, String(value)])),
+    );
+    const downloads = await getCapability<DownloadsNs>('downloads');
+    if (!downloads) throw new ApiError(0, 'FEATURE_DISABLED', 'Downloads are not available in this view.');
+    try {
+      await downloads.save(file);
+    } catch (error) {
+      if ((error as { code?: string })?.code === 'declined') throw new ApiError(0, 'BAD_REQUEST', 'Download cancelled.');
+      throw new ApiError(0, 'INTERNAL', 'The file could not be saved. Try again.');
+    }
+    return;
+  }
   const response = await send(path, { query });
   if (!response.ok) throw await toApiError(response);
   const blob = await response.blob();

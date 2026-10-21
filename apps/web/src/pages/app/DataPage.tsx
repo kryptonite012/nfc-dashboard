@@ -8,7 +8,7 @@ import { Alert, PageHeader } from '@/components/ui/feedback';
 import { NativeSelect } from '@/components/ui/input';
 import { Badge, Card, CardContent, CardDescription, CardHeader, CardTitle, Checkbox, Label } from '@/components/ui/primitives';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useCurrentUser, useImport } from '@/hooks/queries';
+import { useConfig, useCurrentUser, useImport } from '@/hooks/queries';
 import { downloadFile, errorMessage } from '@/lib/api';
 import { formatNumber } from '@/lib/format';
 
@@ -31,6 +31,7 @@ export default function DataPage() {
   const user = useCurrentUser();
   const { locale } = user.settings;
   const importer = useImport();
+  const pdfExport = useConfig().data?.features.pdfExport ?? false;
   const fileInput = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<{ name: string; text: string } | null>(null);
   const [preview, setPreview] = useState<ImportResultDTO | null>(null);
@@ -105,7 +106,7 @@ export default function DataPage() {
     <div className="space-y-6">
       <PageHeader title="Import / Export" description="Move your records in and out of VaultLedger." />
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className={pdfExport ? 'grid gap-4 lg:grid-cols-3' : 'grid gap-4 lg:grid-cols-2'}>
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -119,6 +120,7 @@ export default function DataPage() {
             </Button>
           </CardContent>
         </Card>
+        {pdfExport && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -132,6 +134,7 @@ export default function DataPage() {
             </Button>
           </CardContent>
         </Card>
+        )}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

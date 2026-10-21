@@ -22,6 +22,7 @@ import {
 import { Skeleton } from '@/components/ui/primitives';
 import { useCurrentUser, useItems, useMarkNotificationsRead, useNotifications, useUpdateSettings } from '@/hooks/queries';
 import { useLogout } from '@/hooks/useLogout';
+import { IS_CLAUDE_EDITION } from '@/lib/edition';
 import { formatMoney, formatRelative } from '@/lib/format';
 import { useTheme } from '@/lib/theme';
 import { cn, initials } from '@/lib/utils';
@@ -298,7 +299,7 @@ function UserMenu() {
       <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuLabel className="space-y-0.5">
           <span className="block truncate text-sm font-semibold text-foreground">{user.name}</span>
-          <span className="block truncate font-normal">{user.email}</span>
+          <span className="block truncate font-normal">{IS_CLAUDE_EDITION ? 'Signed in with your Claude account' : user.email}</span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => navigate('/app/security')}>
@@ -307,10 +308,14 @@ function UserMenu() {
         <DropdownMenuItem onSelect={() => navigate('/app/settings')}>
           <Settings /> Settings
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem destructive onSelect={() => logout.mutate()}>
-          <LogOut /> Logout
-        </DropdownMenuItem>
+        {!IS_CLAUDE_EDITION && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem destructive onSelect={() => logout.mutate()}>
+              <LogOut /> Logout
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
