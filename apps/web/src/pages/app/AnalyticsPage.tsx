@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/components
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useAnalytics, useCurrentUser, type AnalyticsParams } from '@/hooks/queries';
 import { errorMessage } from '@/lib/api';
-import { formatBucket, formatDateTime, formatMoney, formatNumber } from '@/lib/format';
+import { formatBucket, formatCount, formatDateTime, formatMoney, isZeroAmount } from '@/lib/format';
 import { browserTimeZone, todayIso } from '@/lib/utils';
 
 type Preset = RangePreset | 'custom';
@@ -222,7 +222,7 @@ export default function AnalyticsPage() {
                   key: band.label,
                   label: band.label,
                   value: band.count,
-                  display: `${formatNumber(band.count, locale)} items`,
+                  display: formatCount(band.count, 'item', 'items', locale),
                 }))}
               />
             </ChartCard>
@@ -233,8 +233,8 @@ export default function AnalyticsPage() {
                   key: entry.categoryId ?? 'none',
                   label: entry.name,
                   value: entry.count,
-                  display: `${formatNumber(entry.count, locale)} items`,
-                  secondary: formatMoney(entry.value, data.currency, locale),
+                  display: formatCount(entry.count, 'item', 'items', locale),
+                  secondary: isZeroAmount(entry.value) ? undefined : formatMoney(entry.value, data.currency, locale),
                   color: entry.color,
                 }))}
               />

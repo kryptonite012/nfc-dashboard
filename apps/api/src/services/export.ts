@@ -37,7 +37,7 @@ const CSV_HEADER = [
 export async function streamCsv(res: Response, userId: string, query: ParsedListQuery): Promise<number> {
   const where = buildItemWhere(userId, query);
   const orderBy = buildItemOrder(query);
-  res.write('﻿'); // BOM so spreadsheet apps detect UTF-8
+  res.write('\uFEFF'); // BOM so spreadsheet apps detect UTF-8
   res.write(csvRow(CSV_HEADER));
 
   let written = 0;

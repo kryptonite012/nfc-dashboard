@@ -11,7 +11,7 @@ import { Alert, EmptyState, ErrorState, PageHeader } from '@/components/ui/feedb
 import { Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/components/ui/primitives';
 import { useAnalytics, useCurrentUser, useOverview } from '@/hooks/queries';
 import { errorMessage } from '@/lib/api';
-import { formatBucket, formatMoney, formatNumber } from '@/lib/format';
+import { formatBucket, formatCount, formatMoney, formatNumber, isZeroAmount } from '@/lib/format';
 import { browserTimeZone } from '@/lib/utils';
 
 export default function OverviewPage() {
@@ -208,8 +208,8 @@ export default function OverviewPage() {
                         key: entry.categoryId ?? 'none',
                         label: entry.name,
                         value: entry.count,
-                        display: `${formatNumber(entry.count, locale)} items`,
-                        secondary: formatMoney(entry.value, analytics.data.currency, locale),
+                        display: formatCount(entry.count, 'item', 'items', locale),
+                        secondary: isZeroAmount(entry.value) ? undefined : formatMoney(entry.value, analytics.data.currency, locale),
                         color: entry.color,
                       }))}
                     />

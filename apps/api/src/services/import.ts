@@ -49,7 +49,7 @@ const MAX_REPORTED_OK_ROWS = 50;
 const MAX_REPORTED_ERROR_ROWS = 500;
 
 function normalizeHeader(value: string): string {
-  return value.replace(/^﻿/, '').trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
+  return value.replace(/^\uFEFF/, '').trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
 }
 
 interface ParsedRow {

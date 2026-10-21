@@ -106,7 +106,9 @@ const envSchema = z
       if (!env.COOKIE_SECURE) {
         ctx.addIssue({ code: 'custom', path: ['COOKIE_SECURE'], message: 'COOKIE_SECURE must be true in production' });
       }
-      if (!env.APP_URL.startsWith('https://')) {
+      const appUrl = new URL(env.APP_URL);
+      // Plain http is only tolerated for a local production preview (browsers treat localhost as secure).
+      if (appUrl.protocol !== 'https:' && appUrl.hostname !== 'localhost') {
         ctx.addIssue({ code: 'custom', path: ['APP_URL'], message: 'APP_URL must use https:// in production' });
       }
       if (!env.RATE_LIMIT_ENABLED) {

@@ -119,7 +119,7 @@ function GlobalSearch() {
               if (event.key === 'Escape') setOpen(false);
             }}
             placeholder="Search items, SKUs, tags…"
-            aria-label="Search records"
+            aria-label="Search all records"
             aria-controls={listId}
             aria-expanded={open && term.length >= 2}
             maxLength={100}
@@ -335,7 +335,7 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
           <GlobalSearch />
         </div>
         <Button variant="ghost" size="icon" className="sm:hidden" asChild>
-          <Link to="/app/records" aria-label="Search records">
+          <Link to="/app/records" aria-label="Go to records search">
             <Search className="size-[18px]" />
           </Link>
         </Button>

@@ -29,7 +29,7 @@ onUnauthenticated(() => {
 
 function ThemedToaster() {
   const { resolved } = useTheme();
-  return <Toaster theme={resolved} position="top-right" richColors closeButton duration={5000} />;
+  return <Toaster theme={resolved} position="bottom-right" richColors closeButton duration={5000} />;
 }
 
 createRoot(document.getElementById('root')!).render(

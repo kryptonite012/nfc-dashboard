@@ -19,7 +19,7 @@ const TEMPLATE = [
 ].join('\r\n');
 
 function downloadTemplate() {
-  const url = URL.createObjectURL(new Blob([`﻿${TEMPLATE}\r\n`], { type: 'text/csv;charset=utf-8' }));
+  const url = URL.createObjectURL(new Blob([`\uFEFF${TEMPLATE}\r\n`], { type: 'text/csv;charset=utf-8' }));
   const link = document.createElement('a');
   link.href = url;
   link.download = 'vaultledger-import-template.csv';

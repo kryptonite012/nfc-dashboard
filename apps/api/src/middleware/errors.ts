@@ -38,12 +38,20 @@ export function errorHandler(error: unknown, req: Request, res: Response, _next:
   } else if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
     appError = new AppError('NOT_FOUND', 'Record not found');
   } else {
+    // Prisma validation errors echo the query arguments (which can include hashes or personal data),
+    // so only their type is logged.
+    const redactMessage = error instanceof Prisma.PrismaClientValidationError || error instanceof Prisma.PrismaClientUnknownRequestError;
     logger.error(
       {
         requestId: req.requestId,
         method: req.method,
         path: req.path,
-        err: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : String(error),
+        err:
+          error instanceof Error
+            ? redactMessage
+              ? { name: error.name }
+              : { name: error.name, message: error.message, stack: error.stack }
+            : 'non-error thrown',
       },
       'Unhandled error',
     );

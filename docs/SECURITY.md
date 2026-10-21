@@ -1,0 +1,107 @@
+# Security
+
+This document describes the security design of VaultLedger, what it protects against, and what an operator
+must do before going live. Report vulnerabilities privately to the repository owner rather than in public issues.
+
+## Authentication
+
+| Control | Implementation |
+| --- | --- |
+| Password storage | Argon2id (19 MiB memory, 2 iterations, 1 lane; OWASP baseline) via `@node-rs/argon2`. Hashes are upgraded on sign-in if the parameters are raised. Passwords are Unicode-normalised (NFKC) first. |
+| Password policy | 10–128 characters, no leading/trailing spaces, zxcvbn score ≥ 3 with the user's name and email as context, optional Have I Been Pwned k-anonymity check (`HIBP_ENABLED`). |
+| Account enumeration | Sign-up always answers "check your inbox" (an existing owner gets a "you already have an account" email instead). Sign-in returns the same error and takes the same time for unknown accounts, wrong passwords and locked accounts (a dummy Argon2 verification runs for unknown accounts). Password reset and resend-verification always answer generically. Email change gives the same response whether or not the address is taken. |
+| Email verification | Required before the first sign-in. Single-use 256-bit link token, stored as SHA-256, valid 24 h. |
+| Password reset | Email: single-use link, 30 min. SMS: 6-digit code, 10 min, 5 attempts. A successful reset signs out every session and sends a notice. The token is only consumed once the new password passes the strength check. |
+| One-time codes | Generated with `crypto.randomInt`, stored as HMAC-SHA-256 keyed with `TOKEN_PEPPER` and bound to the token id, 10-minute expiry, 5 attempts (counted atomically before comparison), 60 s resend cooldown, invalidated after use and when a new code is issued. |
+| Brute force | Per-IP and per-identifier rate limits on sign-in; per-IP limits on sign-up, reset, verification, OTP send/verify and sensitive actions; progressive account lockout after 5 failures (2ⁿ minutes, max 60) with an in-app security notification. |
+| Phone sign-in | Only for numbers verified by SMS, and only when an SMS provider is configured. Numbers are normalised to E.164 with libphonenumber. |
+
+## Sessions
+
+- Opaque 256-bit tokens in an `HttpOnly`, `Secure`, `SameSite=Lax` cookie named `__Host-vl_session` in production
+  (the `__Host-` prefix binds it to the exact host). Only the SHA-256 of the token is stored.
+- **Fixation:** sign-in always creates a new session and destroys any session the browser presented.
+- **Expiry:** 2 h idle / 12 h absolute by default; "remember me" makes a persistent 30-day session.
+- **Rotation:** tokens rotate every 15 minutes of use; the previous token stays valid for 60 s to cover in-flight
+  requests. A superseded token presented after that window ends the session (possible theft).
+- **Privilege changes:** changing the password rotates the current token and signs out all other sessions;
+  a password reset signs out every session. Confirming an email change notifies the previous address.
+- **Revocation:** sign-out deletes the session server-side; users can list and revoke sessions.
+- **Re-authentication:** removing a phone number requires the password within the last 10 minutes; changing the
+  password, email or deleting the account always requires the current password.
+
+## CSRF, CORS and browser hardening
+
+- **CSRF:** every state-changing request needs (1) an `Origin`/`Referer` in `APP_URL`/`EXTRA_ALLOWED_ORIGINS` when
+  present and (2) an `X-CSRF-Token` header equal to an `HttpOnly; SameSite=Strict` cookie (`__Host-vl_csrf`).
+  Only same-origin script can read the token, from `GET /api/auth/csrf`.
+- **CORS:** off by default (same-origin). Credentialed CORS is only granted to origins listed in `EXTRA_ALLOWED_ORIGINS`.
+- **Headers (Helmet):** strict CSP (`script-src 'self'`, no inline scripts, `frame-ancestors 'none'`,
+  `object-src 'none'`), HSTS in production, `nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`,
+  restrictive `Permissions-Policy`. `style-src` allows inline style attributes because the chart and toast
+  libraries set them; scripts remain strict.
+- **Open redirects:** the post-sign-in `next` parameter only accepts same-origin paths under `/app`.
+- **Tokens in URLs:** verification and reset pages remove the token from the address bar and history immediately.
+
+## Data protection and access control
+
+- Every database query is scoped to the authenticated user's id; there is no cross-user query path. Record ids
+  are random UUIDs and malformed ids return 404. Assigning another user's category is rejected.
+  Integration and end-to-end tests check that one user cannot read, modify or delete another's records.
+- All input is validated with strict Zod schemas on the server (unknown fields rejected, lengths bounded,
+  control characters rejected, money parsed without floats); database `CHECK` constraints back up key rules.
+- SQL is generated by Prisma or parameterised tagged templates; `LIKE` wildcards in searches are escaped.
+- React escapes all rendered text; emails escape HTML. CSV exports neutralise formula injection
+  (`=`, `+`, `-`, `@`, tab, CR prefixes). CSV import parses rows as arrays so header names cannot touch object prototypes.
+- Request bodies are limited to 1.2 MB; imports to 1 MB and 5,000 rows.
+
+## Logging
+
+Pino JSON logs include method, path, status, request id and user id. Cookies, headers, bodies and query
+strings are never logged; password, token and code fields are redacted defensively. Prisma validation errors
+are logged by type only, because their messages echo query arguments. Development outbox files contain message
+bodies (by design, so developers can click verification links) and are git-ignored and refused in production.
+
+## Account deletion and retention
+
+Deleting an account (password + typed confirmation) cascades through every user-owned table immediately and
+sends a confirmation email. Data may persist in database backups until they expire; document your backup
+retention (the default guidance in [BACKUP_RESTORE.md](BACKUP_RESTORE.md) is 30 days) in your privacy policy.
+
+## Threat model summary
+
+| Threat | Mitigations |
+| --- | --- |
+| Credential stuffing / brute force | Rate limits, lockout, strong password policy, optional breach check |
+| Account enumeration | Uniform responses and timing on sign-up, sign-in and reset |
+| Session hijacking / fixation | HttpOnly Secure cookies, rotation, fixation protection, server-side revocation, idle/absolute expiry |
+| CSRF / clickjacking | Origin check + double-submit token, SameSite cookies, `frame-ancestors 'none'` |
+| XSS | React escaping, strict CSP without inline scripts, no `dangerouslySetInnerHTML` |
+| IDOR / broken access control | Owner-scoped queries, UUIDs, tests for cross-user access |
+| SQL injection | ORM / parameterised queries only |
+| Lost updates / duplicates | Optimistic locking, idempotency keys, transactions |
+| Database leak | Argon2id hashes, hashed tokens, HMAC'd codes with a server-side pepper |
+
+## Before going live — checklist
+
+- [ ] Serve over HTTPS only; `APP_URL=https://…`, `COOKIE_SECURE=true` (enforced), HSTS enabled by default.
+- [ ] Set `TRUST_PROXY` to the number of proxies in front of the app so client IPs (rate limits, logs) are correct.
+- [ ] Generate a unique `TOKEN_PEPPER` (`openssl rand -base64 48`) and keep it in your host's secret store.
+      Rotating it invalidates outstanding one-time codes only.
+- [ ] Configure real SMTP with SPF, DKIM and DMARC for the `EMAIL_FROM` domain.
+- [ ] Decide on SMS. Leave `SMS_PROVIDER=disabled` unless you have a Twilio account and budget for abuse.
+- [ ] Consider `HIBP_ENABLED=true`.
+- [ ] Do not deploy `.env` files. (Prisma's client also auto-loads a `.env` next to the schema; the Docker image
+      excludes them.) Use the platform's environment/secret settings.
+- [ ] Run more than one API instance only with a shared rate-limit store (see DEPLOYMENT.md).
+- [ ] Enable automated backups with point-in-time recovery and test a restore (BACKUP_RESTORE.md).
+- [ ] Have the Privacy Policy and Terms reviewed and completed.
+- [ ] Forward logs to a central store with alerting on 5xx rates and on spikes of `auth.login_failed`.
+- [ ] Commission an independent penetration test before handling sensitive data.
+
+## Dependency advisories (at the time of writing)
+
+`npm audit` reports no critical advisories in production dependencies (CI fails on critical ones). Known
+lower-severity items: `deepmerge-ts` inside the Prisma 6 CLI's config loader (not reachable from requests;
+resolved by upgrading to Prisma 7 when practical), and build-time-only advisories in Tailwind CSS 3 and esbuild
+(development tooling, not shipped to production). Dependabot is configured to propose updates weekly.

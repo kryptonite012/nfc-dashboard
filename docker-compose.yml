@@ -1,0 +1,53 @@
+# Local infrastructure for VaultLedger.
+#   Development services only:   docker compose up -d db mailpit
+#   Full stack (production build): TOKEN_PEPPER=$(openssl rand -base64 48) docker compose --profile app up --build
+services:
+  db:
+    image: postgres:16.6-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: vaultledger
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vaultledger_dev}
+      POSTGRES_DB: vaultledger
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vaultledger -d vaultledger"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Catches all outgoing email locally. Web inbox at http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.21.8
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+
+  app:
+    profiles: ["app"]
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://vaultledger:${POSTGRES_PASSWORD:-vaultledger_dev}@db:5432/vaultledger
+      APP_URL: http://localhost:8080
+      TOKEN_PEPPER: ${TOKEN_PEPPER:?Set TOKEN_PEPPER, e.g. TOKEN_PEPPER=$(openssl rand -base64 48)}
+      COOKIE_SECURE: "true"
+      TRUST_PROXY: "0"
+      EMAIL_TRANSPORT: smtp
+      EMAIL_FROM: "VaultLedger <no-reply@localhost>"
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMS_PROVIDER: disabled
+    ports:
+      - "127.0.0.1:8080:4000"
+
+volumes:
+  db-data:

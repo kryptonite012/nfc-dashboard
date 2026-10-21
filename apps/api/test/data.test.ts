@@ -17,7 +17,7 @@ describe('CSV export', () => {
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toMatch(/text\/csv/);
     expect(res.headers['content-disposition']).toMatch(/attachment; filename="vaultledger-records-/);
-    const lines = res.text.replace(/^﻿/, '').trim().split('\r\n');
+    const lines = res.text.replace(/^\uFEFF/, '').trim().split('\r\n');
     expect(lines).toHaveLength(3);
     expect(lines[1]).toMatch(/^"'=HYPERLINK\(""http:\/\/evil""\)",10\.00,INR,1,10\.00/);
     expect(lines[2]).toMatch(/^"Plain, ""quoted""",20\.50,INR/);

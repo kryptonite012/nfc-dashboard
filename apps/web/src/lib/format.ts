@@ -90,7 +90,11 @@ export function formatRelative(iso: string): string {
   return formatDate(iso);
 }
 
-/** Parses an exact decimal string into a number for plotting only (never for arithmetic on money). */
-export function plotValue(decimal: string): number {
-  return Number(decimal);
+export function formatCount(count: number, singular: string, plural = `${singular}s`, locale: SupportedLocale | string = 'en-IN'): string {
+  return `${formatNumber(count, locale)} ${count === 1 ? singular : plural}`;
+}
+
+/** True for exact decimal strings equal to zero ("0", "0.00", "-0.000"). */
+export function isZeroAmount(decimal: string): boolean {
+  return /^-?0+(\.0+)?$/.test(decimal);
 }
