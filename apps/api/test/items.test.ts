@@ -160,6 +160,15 @@ describe('dashboard figures', () => {
     expect(overview.currencies[0].currency).toBe('INR'); // the user's default currency first
   });
 
+  it('picks the highest price numerically, not alphabetically', async () => {
+    const client = await createSignedInUser('highest@example.com');
+    await addItem(client, { name: 'Coffee', price: '850' });
+    await addItem(client, { name: 'Headphones', price: '29990' });
+    await addItem(client, { name: 'Cable', price: '99.99' });
+    const overview = (await client.get('/api/insights/overview')).body.data;
+    expect(overview.currencies[0].highest).toMatchObject({ name: 'Headphones', price: '29990.00' });
+  });
+
   it('reconstructs collection value over time from the ledger', async () => {
     const client = await createSignedInUser('ledger@example.com');
     const item = await addItem(client, { name: 'Camera', price: '1000', quantity: 2 });

@@ -36,8 +36,9 @@ export async function getOverview(userId: string, primaryCurrency: CurrencyCode)
         FROM items
        WHERE user_id = ${userId}::uuid AND deleted_at IS NULL
        GROUP BY currency`,
-    prisma.$queryRaw<{ id: string; name: string; currency: string; price_minor: string }[]>`
-      SELECT DISTINCT ON (currency) id::text, name, currency, price_minor::text
+    // The text cast gets its own alias: ORDER BY must sort the bigint column, not its string form.
+    prisma.$queryRaw<{ id: string; name: string; currency: string; price_text: string }[]>`
+      SELECT DISTINCT ON (currency) id::text, name, currency, price_minor::text AS price_text
         FROM items
        WHERE user_id = ${userId}::uuid AND deleted_at IS NULL
        ORDER BY currency, price_minor DESC, created_at ASC`,
@@ -69,7 +70,7 @@ export async function getOverview(userId: string, primaryCurrency: CurrencyCode)
         totalQuantity: Number(row.total_quantity),
         totalValue: money(row.total_value, currency),
         averagePrice: money(divideRounded(BigInt(row.price_sum), BigInt(row.item_count)), currency),
-        highest: top ? { id: top.id, name: top.name, price: minorToDecimalString(top.price_minor, currency) } : null,
+        highest: top ? { id: top.id, name: top.name, price: minorToDecimalString(top.price_text, currency) } : null,
       };
     })
     .sort((a, b) => Number(b.currency === primaryCurrency) - Number(a.currency === primaryCurrency) || b.itemCount - a.itemCount);
