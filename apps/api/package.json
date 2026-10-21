@@ -1,0 +1,52 @@
+{
+  "name": "@vaultledger/api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "VaultLedger REST API (Express + Prisma + PostgreSQL)",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsup",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:seed": "tsx prisma/seed.ts",
+    "postinstall": "prisma generate"
+  },
+  "dependencies": {
+    "@node-rs/argon2": "2.2.2",
+    "@prisma/client": "6.19.3",
+    "@vaultledger/shared": "*",
+    "@zxcvbn-ts/core": "4.2.0",
+    "@zxcvbn-ts/language-common": "4.1.3",
+    "@zxcvbn-ts/language-en": "4.1.1",
+    "cookie-parser": "1.4.7",
+    "csv-parse": "7.0.3",
+    "express": "5.3.0",
+    "express-rate-limit": "8.7.1",
+    "helmet": "8.3.0",
+    "libphonenumber-js": "1.13.15",
+    "nodemailer": "10.1.7",
+    "pdfkit": "0.17.2",
+    "pino": "10.4.0",
+    "pino-http": "11.0.0",
+    "prisma": "6.19.3",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "1.4.10",
+    "@types/express": "5.0.6",
+    "@types/node": "22.20.5",
+    "@types/pdfkit": "0.17.6",
+    "@types/supertest": "6.0.3",
+    "supertest": "7.1.4",
+    "tsup": "8.5.1",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vitest": "4.1.12"
+  }
+}

@@ -1,0 +1,231 @@
+// VaultLedger database schema.
+// Money is stored as integer minor units (BIGINT) with an ISO 4217 currency code.
+// Every user-owned table carries user_id so that all queries can be scoped to the owner.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String    @id @default(uuid()) @db.Uuid
+  name              String    @db.VarChar(100)
+  email             String    @unique @db.VarChar(254)
+  emailVerifiedAt   DateTime? @map("email_verified_at")
+  pendingEmail      String?   @map("pending_email") @db.VarChar(254)
+  /// Verified phone number in E.164 format. Only verified numbers are stored here.
+  phone             String?   @unique @db.VarChar(20)
+  phoneVerifiedAt   DateTime? @map("phone_verified_at")
+  /// Number supplied at sign-up or in settings that has not been verified yet.
+  pendingPhone      String?   @map("pending_phone") @db.VarChar(20)
+  passwordHash      String    @map("password_hash")
+  passwordChangedAt DateTime  @default(now()) @map("password_changed_at")
+  failedLoginCount  Int       @default(0) @map("failed_login_count")
+  lockedUntil       DateTime? @map("locked_until")
+  defaultCurrency   String    @default("INR") @map("default_currency") @db.VarChar(3)
+  theme             String    @default("system") @db.VarChar(8)
+  locale            String    @default("en-IN") @db.VarChar(8)
+  showQuantity      Boolean   @default(true) @map("show_quantity")
+  termsAcceptedAt   DateTime  @map("terms_accepted_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  sessions           Session[]
+  verificationTokens VerificationToken[]
+  categories         Category[]
+  items              Item[]
+  priceHistory       PriceHistory[]
+  valueLedger        ValueLedgerEntry[]
+  activity           ActivityLog[]
+  notifications      Notification[]
+
+  @@map("users")
+}
+
+model Session {
+  id                String    @id @default(uuid()) @db.Uuid
+  userId            String    @map("user_id") @db.Uuid
+  /// SHA-256 of the current session token. The raw token only exists in the user's cookie.
+  tokenHash         String    @unique @map("token_hash") @db.Char(64)
+  /// Hash of the token that was replaced by the last rotation; accepted for a short grace period.
+  previousTokenHash String?   @unique @map("previous_token_hash") @db.Char(64)
+  rotatedAt         DateTime  @default(now()) @map("rotated_at")
+  persistent        Boolean   @default(false)
+  userAgent         String?   @map("user_agent") @db.VarChar(512)
+  ipAddress         String?   @map("ip_address") @db.VarChar(64)
+  /// Last time the user re-entered their password in this session (for sensitive actions).
+  authenticatedAt   DateTime  @default(now()) @map("authenticated_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  lastActiveAt      DateTime  @default(now()) @map("last_active_at")
+  /// Absolute expiry; idle expiry is derived from lastActiveAt.
+  expiresAt         DateTime  @map("expires_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+enum VerificationType {
+  EMAIL_VERIFY
+  EMAIL_CHANGE
+  PASSWORD_RESET
+  PHONE_VERIFY
+  PHONE_PASSWORD_RESET
+}
+
+model VerificationToken {
+  id         String           @id @default(uuid()) @db.Uuid
+  userId     String           @map("user_id") @db.Uuid
+  type       VerificationType
+  /// SHA-256 of a random link token, or HMAC-SHA-256 of a numeric one-time code.
+  tokenHash  String           @unique @map("token_hash") @db.Char(64)
+  /// Address the token was sent to (email or E.164 phone).
+  target     String           @db.VarChar(254)
+  attempts   Int              @default(0)
+  expiresAt  DateTime         @map("expires_at")
+  consumedAt DateTime?        @map("consumed_at")
+  createdAt  DateTime         @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type, createdAt])
+  @@index([expiresAt])
+  @@map("verification_tokens")
+}
+
+model Category {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  name      String   @db.VarChar(50)
+  /// Lower-cased name used for case-insensitive uniqueness per user.
+  nameKey   String   @map("name_key") @db.VarChar(50)
+  color     String   @default("blue") @db.VarChar(16)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items Item[]
+
+  @@unique([userId, nameKey])
+  @@map("categories")
+}
+
+model Item {
+  id              String    @id @default(uuid()) @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  categoryId      String?   @map("category_id") @db.Uuid
+  name            String    @db.VarChar(120)
+  /// Unit price in integer minor units of `currency`.
+  priceMinor      BigInt    @map("price_minor")
+  currency        String    @db.VarChar(3)
+  quantity        Int       @default(1)
+  sku             String?   @db.VarChar(64)
+  description     String?   @db.VarChar(2000)
+  supplier        String?   @db.VarChar(120)
+  purchaseDate    DateTime? @map("purchase_date") @db.Date
+  tags            String[]  @default([]) @db.VarChar(32)
+  /// Incremented on every change; used for optimistic concurrency control.
+  version         Int       @default(1)
+  /// Client-generated idempotency key that makes create requests safe to retry.
+  clientRequestId String?   @map("client_request_id") @db.VarChar(64)
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  /// Soft-deletion timestamp. Deleted items stay recoverable from the trash until purged.
+  deletedAt       DateTime? @map("deleted_at")
+
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category     Category?          @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  priceHistory PriceHistory[]
+  ledger       ValueLedgerEntry[]
+
+  @@unique([userId, clientRequestId])
+  @@index([userId, deletedAt, createdAt])
+  @@index([userId, deletedAt, updatedAt])
+  @@index([userId, deletedAt, priceMinor])
+  @@index([userId, deletedAt, name])
+  @@index([categoryId])
+  @@index([tags], type: Gin)
+  @@map("items")
+}
+
+/// Snapshot of an item's unit price each time it is created or its price, currency or quantity changes.
+model PriceHistory {
+  id         String   @id @default(uuid()) @db.Uuid
+  itemId     String   @map("item_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  priceMinor BigInt   @map("price_minor")
+  currency   String   @db.VarChar(3)
+  quantity   Int
+  recordedAt DateTime @default(now()) @map("recorded_at")
+
+  item Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([itemId, recordedAt])
+  @@index([userId, recordedAt])
+  @@map("price_history")
+}
+
+enum LedgerKind {
+  ADD
+  REMOVE
+  REPRICE
+}
+
+/// Append-only ledger of changes to the total value of a user's active collection.
+/// The running sum per currency reconstructs the collection value at any point in time.
+model ValueLedgerEntry {
+  id         String     @id @default(uuid()) @db.Uuid
+  userId     String     @map("user_id") @db.Uuid
+  itemId     String?    @map("item_id") @db.Uuid
+  currency   String     @db.VarChar(3)
+  /// Signed change in Σ(unit price × quantity), in minor units.
+  deltaMinor Decimal    @map("delta_minor") @db.Decimal(30, 0)
+  kind       LedgerKind
+  occurredAt DateTime   @default(now()) @map("occurred_at")
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  item Item? @relation(fields: [itemId], references: [id], onDelete: SetNull)
+
+  @@index([userId, currency, occurredAt])
+  @@map("value_ledger")
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  type      String   @db.VarChar(48)
+  summary   String   @db.VarChar(300)
+  entityId  String?  @map("entity_id") @db.Uuid
+  metadata  Json?
+  ipAddress String?  @map("ip_address") @db.VarChar(64)
+  userAgent String?  @map("user_agent") @db.VarChar(512)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("activity_log")
+}
+
+model Notification {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  kind      String    @db.VarChar(16)
+  title     String    @db.VarChar(120)
+  body      String    @db.VarChar(500)
+  link      String?   @db.VarChar(200)
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+  @@map("notifications")
+}
