@@ -1,5 +1,3 @@
-hi
-
 # VaultLedger — Secure Item & Price Manager
 
 VaultLedger is a full-stack web application for recording items and their prices, privately, per account.
